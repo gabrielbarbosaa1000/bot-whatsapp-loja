@@ -1,27 +1,38 @@
 // ======================================
 // 1. CÓDIGO PARA FUNCIONAR NO RENDER.COM
 // ======================================
-const express = require('express'); // Importa o Express (servidor web)
-const app = express(); // Cria o servidor
-const PORT = process.env.PORT || 3000; // Usa a porta do Render ou 3000
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+const fs = require('fs');
+const path = require('path');
+const qrcode = require('qrcode'); // Modificado para gerar QR Code como imagem
+const { Client, MessageMedia } = require('whatsapp-web.js');
+
+// Configuração do servidor para servir arquivos estáticos
+app.use(express.static('public'));
+
+// Rota para acessar o QR Code
+app.get('/qrcode', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/qrcode.png'));
+});
 
 // Rota básica para verificar se o bot está online
 app.get('/', (req, res) => {
-  res.send('🤖 Bot está online! Acesse os logs para ver o QR Code.');
+    res.send('🤖 Bot está online! Acesse /qrcode para visualizar o QR Code.');
 });
 
-// Inicia o servidor
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
 });
-// ======================================
 
-const fs = require('fs');
-const path = require('path');
-const qrcode = require('qrcode-terminal');
-const { Client, MessageMedia } = require('whatsapp-web.js');
+const client = new Client({
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
+});
 
-const client = new Client();
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 const userPdfChoices = {};
@@ -32,8 +43,27 @@ const inatividadeNotificada = {};
 const TEMPO_AVISO = 5 * 60 * 1000; // 5 minutos
 const TEMPO_ENCERRAMENTO = 10 * 60 * 1000; // 10 minutos
 
-client.on('qr', qr => {
-    qrcode.generate(qr, { small: true });
+// Geração do QR Code como imagem
+client.on('qr', async qr => {
+    console.log('Gerando QR Code...');
+    
+    // Cria a pasta public se não existir
+    if (!fs.existsSync('public')) {
+        fs.mkdirSync('public');
+    }
+    
+    // Gera a imagem do QR Code
+    try {
+        await qrcode.toFile('public/qrcode.png', qr, {
+            width: 300,
+            margin: 2,
+            errorCorrectionLevel: 'H'
+        });
+        console.log('✅ QR Code gerado em public/qrcode.png');
+        console.log(`🔗 Acesse: https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'seu-bot.onrender.com'}/qrcode`);
+    } catch (err) {
+        console.error('Erro ao gerar QR Code:', err);
+    }
 });
 
 client.on('ready', () => {
