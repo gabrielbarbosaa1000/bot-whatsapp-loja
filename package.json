@@ -1,7 +1,14 @@
 {
+  "name": "bot-whatsapp-loja",
+  "version": "1.0.0",
+  "description": "Bot para WhatsApp da minha loja",
+  "main": "index.js", // <-- Confirme se está apontando para seu arquivo principal
+  "scripts": {
+    "start": "node index.js" // <-- Esta linha é ESSENCIAL
+  },
   "dependencies": {
-    "moment-timezone": "^0.5.45",
+    "whatsapp-web.js": "^1.25.0",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": ""
+    "express": "^4.18.2" // <-- Adicione se faltar
   }
 }
