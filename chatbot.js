@@ -1,3 +1,21 @@
+// ======================================
+// 1. CÓDIGO PARA FUNCIONAR NO RENDER.COM
+// ======================================
+const express = require('express'); // Importa o Express (servidor web)
+const app = express(); // Cria o servidor
+const PORT = process.env.PORT || 3000; // Usa a porta do Render ou 3000
+
+// Rota básica para verificar se o bot está online
+app.get('/', (req, res) => {
+  res.send('🤖 Bot está online! Acesse os logs para ver o QR Code.');
+});
+
+// Inicia o servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
+// ======================================
+
 const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode-terminal');
