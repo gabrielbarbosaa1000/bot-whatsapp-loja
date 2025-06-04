@@ -3,13 +3,20 @@
 // ======================================
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 10000; // Porta alterada para 10000
+const PORT = process.env.PORT || 10000;
 const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 
-// Variável de controle de conexão
+// Logs iniciais do sistema
+console.log('=== INFORMAÇÕES DO SISTEMA ===');
+console.log('Node.js Version:', process.version);
+console.log('Render Environment:', process.env.RENDER ? 'Sim' : 'Não');
+console.log('Porta:', process.env.PORT);
+console.log('================================');
+
+// Variável de controle
 let isConnected = false;
 
 // Configuração do servidor
@@ -21,7 +28,7 @@ app.get('/qrcode', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('🤖 Bot está online! Acesse /qrcode para visualizar o QR Code.');
+    res.send('🤖 Bot está online! Acesse /qrcode para o QR Code.');
 });
 
 app.get('/health', (req, res) => {
@@ -33,12 +40,12 @@ app.listen(PORT, () => {
 });
 
 // ======================================
-// CONFIGURAÇÃO DO WHATSAPP CLIENT (OTIMIZADA)
+// CONFIGURAÇÃO DO WHATSAPP CLIENT
 // ======================================
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './sessions',
-        clientId: 'bot-loja' // Nome único para a sessão
+        clientId: 'bot-loja'
     }),
     puppeteer: {
         headless: true,
@@ -50,7 +57,8 @@ const client = new Client({
         ]
     },
     takeoverOnConflict: true,
-    restartOnAuthFail: true
+    restartOnAuthFail: true,
+    disconnectOnLogout: false
 });
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -90,18 +98,21 @@ client.on('ready', () => {
     console.log('🚀 Bot pronto para receber mensagens!');
 });
 
-client.on('disconnected', async (reason) => {
-    isConnected = false;
-    console.log('❌ Desconectado do WhatsApp:', reason);
+client.on('disconnected', (reason) => {
+    console.log('=== LOG DE DESCONEXÃO ===');
+    console.log('Motivo:', reason);
+    console.log('Status:', client.info);
+    console.log('=========================');
     
-    // Reconecta após 10 segundos
-    await delay(10000);
-    console.log('Tentando reconectar...');
-    client.initialize();
+    isConnected = false;
+    setTimeout(() => {
+        console.log('Tentando reconectar...');
+        client.initialize();
+    }, 10000);
 });
 
 // ======================================
-// FUNÇÕES PRINCIPAIS (SIMPLIFICADAS)
+// FUNÇÕES PRINCIPAIS
 // ======================================
 function saudacaoPersonalizada() {
     const hora = new Date().getHours();
@@ -136,7 +147,7 @@ Digite o número da opção:
 }
 
 // ======================================
-// HANDLER DE MENSAGENS (OTIMIZADO)
+// HANDLER DE MENSAGENS
 // ======================================
 client.on('message', async (msg) => {
     if (msg.fromMe || !isConnected) return;
@@ -147,15 +158,13 @@ client.on('message', async (msg) => {
         const contact = await msg.getContact();
         const nome = contact.pushname || 'Cliente';
 
-        console.log(`Mensagem de ${nome}: ${comando}`);
+        console.log(`📩 Mensagem de ${nome}: ${comando}`);
 
-        // Comandos básicos
         if (/^(menu|oi|olá|ola)$/i.test(comando)) {
             await enviarMenu(msg, nome);
             return;
         }
 
-        // Respostas automáticas
         const respostas = {
             '1': '📞 Um vendedor entrará em contato em breve!',
             '2': '💰 Envie seu CPF/CNPJ para consulta financeira.',
@@ -175,14 +184,14 @@ client.on('message', async (msg) => {
 });
 
 // ======================================
-// INICIALIZAÇÃO SEGURA
+// INICIALIZAÇÃO
 // ======================================
 (async () => {
     try {
         await client.initialize();
-        console.log('Inicialização do WhatsApp concluída');
+        console.log('Inicialização concluída com sucesso!');
     } catch (err) {
-        console.error('Erro na inicialização:', err);
+        console.error('Falha na inicialização:', err);
         process.exit(1);
     }
 })();
