@@ -1,66 +1,65 @@
 // ======================================
-// 1. CÓDIGO PARA FUNCIONAR NO RENDER.COM
+// CONFIGURAÇÕES INICIAIS
 // ======================================
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const fs = require('fs');
 const path = require('path');
-const qrcode = require('qrcode'); // Modificado para gerar QR Code como imagem
-const { Client, MessageMedia } = require('whatsapp-web.js');
+const qrcode = require('qrcode');
+const { Client, LocalAuth } = require('whatsapp-web.js');
 
-// Configuração do servidor para servir arquivos estáticos
+// Configuração do servidor
 app.use(express.static('public'));
 
-// Rota para acessar o QR Code
+// Rotas
 app.get('/qrcode', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/qrcode.png'));
 });
 
-// Rota básica para verificar se o bot está online
 app.get('/', (req, res) => {
     res.send('🤖 Bot está online! Acesse /qrcode para visualizar o QR Code.');
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 
+// ======================================
+// CONFIGURAÇÃO DO WHATSAPP CLIENT
+// ======================================
 const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: './sessions' }),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage'
+        ]
     }
 });
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
-
-const userPdfChoices = {};
 const ultimasInteracoes = {};
 const iniciadasPeloCliente = {};
 const inatividadeNotificada = {};
+const TEMPO_AVISO = 5 * 60 * 1000;
+const TEMPO_ENCERRAMENTO = 10 * 60 * 1000;
 
-const TEMPO_AVISO = 5 * 60 * 1000; // 5 minutos
-const TEMPO_ENCERRAMENTO = 10 * 60 * 1000; // 10 minutos
-
-// Geração do QR Code como imagem
+// ======================================
+// GERENCIAMENTO DE QR CODE
+// ======================================
 client.on('qr', async qr => {
     console.log('Gerando QR Code...');
     
-    // Cria a pasta public se não existir
-    if (!fs.existsSync('public')) {
-        fs.mkdirSync('public');
-    }
+    if (!fs.existsSync('public')) fs.mkdirSync('public');
     
-    // Gera a imagem do QR Code
     try {
         await qrcode.toFile('public/qrcode.png', qr, {
             width: 300,
             margin: 2,
             errorCorrectionLevel: 'H'
         });
-        console.log('✅ QR Code gerado em public/qrcode.png');
-        console.log(`🔗 Acesse: https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'seu-bot.onrender.com'}/qrcode`);
+        console.log('✅ QR Code disponível em: /qrcode');
     } catch (err) {
         console.error('Erro ao gerar QR Code:', err);
     }
@@ -70,8 +69,16 @@ client.on('ready', () => {
     console.log('Tudo certo! WhatsApp conectado.');
 });
 
+client.on('disconnected', (reason) => {
+    console.log('Cliente desconectado!', reason);
+    client.initialize(); // Reconecta automaticamente
+});
+
 client.initialize();
 
+// ======================================
+// FUNÇÕES AUXILIARES
+// ======================================
 function saudacaoPersonalizada() {
     const hora = new Date().getHours();
     if (hora >= 5 && hora < 12) return 'Bom dia';
@@ -94,12 +101,11 @@ ${saudacao}, *${nome}*! 👋, tudo bem?
 
 Escolha uma das opções abaixo:  
 
-🛍️  *[1]* Falar com um Vendedor;  
-💰  *[2]* Financeiro (Boletos, Pagamentos);  
-💼  *[3]* Trabalhe Conosco;  
-🔔  *[4]* Ofertas e Novidades;  
-📍  *[5]* Localização da Loja;  
-📑  *[6]* Catálogos de Produtos.  
+🛍️  *[1]* Falar com um Vendedor  
+💰  *[2]* Financeiro (Boletos, Pagamentos)  
+💼  *[3]* Trabalhe Conosco  
+🔔  *[4]* Ofertas e Novidades  
+📍  *[5]* Localização da Loja  
 
 ✳️ _Digite o número da opção desejada._  
 ❗ _A qualquer momento, envie *MENU* para voltar ao início._  
@@ -108,191 +114,86 @@ Escolha uma das opções abaixo:
     await enviarComDigitando(chat, menuMensagem);
 }
 
+// ======================================
+// HANDLER DE MENSAGENS (SIMPLIFICADO)
+// ======================================
 client.on('message', async (msg) => {
+    if (msg.fromMe) return;
+
     const chat = await msg.getChat();
     const comando = msg.body.trim().toLowerCase();
     const contact = await msg.getContact();
     const nome = contact.pushname || 'cliente';
     const nomeFormatado = nome.split(" ")[0];
-    const pdfDir = path.join(__dirname, 'arquivos', 'PDFs');
 
-    // 🔒 Bloqueio de chamadas
-    if (msg.type !== 'chat') return;
+    // Atualiza controle de atividade
+    ultimasInteracoes[msg.from] = Date.now();
+    inatividadeNotificada[msg.from] = false;
 
-    if (!msg.fromMe) {
-        ultimasInteracoes[msg.from] = Date.now();
-        inatividadeNotificada[msg.from] = false;
-
-        if (/^(oi|olá|ola|menu|bom dia|boa tarde|boa noite)$/i.test(comando)) {
-            iniciadasPeloCliente[msg.from] = true;
-        }
-    }
-
-    if (comando === 'sair' || comando === 'parar') {
-        await enviarComDigitando(chat, '⚠️ *Confirmação:* Você realmente deseja encerrar o atendimento?\n\nDigite *SIM* para confirmar ou *MENU* para continuar.');
-        ultimasInteracoes[msg.from] = Date.now();
-        inatividadeNotificada[msg.from] = false;
-        iniciadasPeloCliente[msg.from] = true;
+    // Comandos básicos
+    if (/^(sair|parar)$/.test(comando)) {
+        await enviarComDigitando(chat, '⚠️ Digite *SIM* para confirmar encerramento ou *MENU* para continuar.');
         return;
     }
 
     if (comando === 'sim') {
-        delete userPdfChoices[msg.from];
-        delete ultimasInteracoes[msg.from];
-        delete iniciadasPeloCliente[msg.from];
-        delete inatividadeNotificada[msg.from];
-
-        await enviarComDigitando(chat, '✅ Atendimento *encerrado com sucesso.*\n\nQuando quiser, é só digitar *MENU* para começar de novo.');
+        await enviarComDigitando(chat, '✅ Atendimento encerrado. Digite *MENU* quando quiser voltar.');
         return;
     }
 
     if (/^(oi|olá|ola|menu|bom dia|boa tarde|boa noite)$/i.test(comando)) {
+        iniciadasPeloCliente[msg.from] = true;
         await enviarMenu(msg, nomeFormatado);
         return;
     }
 
-    if (!iniciadasPeloCliente[msg.from]) {
-        if (/^[1-6]$/.test(comando)) {
-            await enviarComDigitando(chat, '👋 Por favor, digite *OI*, *MENU* ou outra saudação para iniciar o atendimento.');
-            return;
-        }
-    }
-
-    if (userPdfChoices[msg.from]) {
-        if (comando === '0') {
-            await enviarComDigitando(chat, '⏳ Processando... Enviando *todos os catálogos*. Aguarde...');
-
-            for (const file of userPdfChoices[msg.from]) {
-                const filePath = path.join(pdfDir, file);
-                const media = MessageMedia.fromFilePath(filePath);
-                await client.sendMessage(msg.from, media, { caption: `📎 *${file}*` });
-                await delay(1500);
-            }
-
-            const logPath = path.join(__dirname, 'logs', 'catalogo_logs.csv');
-            const logData = `"${msg.from}","${nome}","TODOS","${new Date().toLocaleString()}"\n`;
-            fs.appendFile(logPath, logData, (err) => {
-                if (err) console.error('Erro ao salvar log:', err);
-                else console.log(`📥 Log salvo: ${nome} solicitou TODOS os catálogos`);
-            });
-
-            delete userPdfChoices[msg.from];
-
-            await enviarComDigitando(chat, '✅ *Todos os catálogos foram enviados.*\n\n🔄 Retornando ao menu principal...');
-            await enviarMenu(msg, nomeFormatado);
-            return;
-        }
-
-        const escolha = parseInt(comando);
-        if (!isNaN(escolha) && escolha >= 1 && escolha <= userPdfChoices[msg.from].length) {
-            const selectedFile = userPdfChoices[msg.from][escolha - 1];
-            const filePath = path.join(pdfDir, selectedFile);
-            const media = MessageMedia.fromFilePath(filePath);
-
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Por favor, aguarde...');
-            await client.sendMessage(msg.from, media, {
-                caption: `📎 Aqui está o arquivo: *${selectedFile}*`
-            });
-
-            const logPath = path.join(__dirname, 'logs', 'catalogo_logs.csv');
-            const logData = `"${msg.from}","${nome}","${selectedFile}","${new Date().toLocaleString()}"\n`;
-
-            fs.appendFile(logPath, logData, (err) => {
-                if (err) console.error('Erro ao salvar log:', err);
-                else console.log(`📥 Log salvo: ${nome} solicitou ${selectedFile}`);
-            });
-
-            delete userPdfChoices[msg.from];
-
-            await enviarComDigitando(chat, '🔄 Retornando ao menu principal...');
-            await enviarMenu(msg, nomeFormatado);
-        } else {
-            await enviarComDigitando(chat, '❌ *Opção inválida.* Envie apenas o número do PDF desejado.');
-        }
-        return;
-    }
-
+    // Menu principal
     switch (comando) {
         case '1':
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Aguarde...');
-            await enviarComDigitando(chat, '📞 Um *vendedor* entrará em contato com você em breve. Aguarde!');
+            await enviarComDigitando(chat, '📞 Um vendedor entrará em contato em breve!');
             break;
 
         case '2':
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Aguarde...');
-            await enviarComDigitando(chat, '💰 Por favor, envie seu *NOME*, *CPF* ou *CNPJ* para que possamos localizar seus dados financeiros.');
+            await enviarComDigitando(chat, '💰 Por favor, envie seu *NOME* e *CPF/CNPJ* para consulta.');
             break;
 
         case '3':
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Aguarde...');
-            await enviarComDigitando(chat, '🚀 Que bom que deseja fazer parte da nossa equipe.\n\n📄 Por favor, envie seu *CURRÍCULO* (PDF, Word ou foto) *neste chat mesmo*.\n\n📝 *Importante:* Informe também:\n- A *vaga* desejada;\n- Seu *nome completo*;\n- Seu *telefone* para contato.\n\nBoa sorte! 🍀');
+            await enviarComDigitando(chat, '💼 Envie seu CURRÍCULO para este chat com:\n- Nome completo\n- Telefone\n- Vaga desejada');
             break;
 
         case '4':
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Aguarde...');
-            await enviarComDigitando(chat, '🔔 *Perfeito!* Agora você receberá nossas *OFERTAS EXCLUSIVAS* e novidades.\n\n⚠️ *Salve nosso número nos seus contatos* para não perder nenhuma informação!\n\nEm breve, enviaremos novidades pra você.');
+            await enviarComDigitando(chat, '🔔 Você agora receberá nossas ofertas!\nSalve nosso contato para não perder.');
             break;
 
         case '5':
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Aguarde...');
-            await enviarComDigitando(chat, '📍 Aqui está nossa localização no Google Maps:\n\nhttps://maps.app.goo.gl/mLiFQuJSGqHb6WvE7');
-            break;
-
-        case '6':
-            await enviarComDigitando(chat, '⏳ Processando sua escolha. Aguarde...');
-
-            if (!fs.existsSync(pdfDir)) {
-                await enviarComDigitando(chat, '❌ *A pasta de PDFs não foi encontrada.*');
-                return;
-            }
-
-            const arquivos = fs.readdirSync(pdfDir);
-            const pdfs = arquivos.filter(file => file.toLowerCase().endsWith('.pdf')).sort();
-
-            if (pdfs.length === 0) {
-                await enviarComDigitando(chat, '⚠️ *Nenhum catálogo PDF encontrado no momento.*');
-                return;
-            }
-
-            userPdfChoices[msg.from] = pdfs;
-
-            let resposta = '📚 *Catálogos disponíveis:*\n\n';
-            resposta += '*0* - 📥 *Baixar TODOS os catálogos*\n\n';
-            pdfs.forEach((file, index) => {
-                resposta += `*${index + 1}* - ${file}\n`;
-            });
-            resposta += '\n✳️ *Digite o número do catálogo que deseja receber.*';
-
-            await enviarComDigitando(chat, resposta);
+            await enviarComDigitando(chat, '📍 Nossa localização:\nhttps://maps.app.goo.gl/mLiFQuJSGqHb6WvE7');
             break;
 
         default:
             if (/^\d+$/.test(comando)) {
-                await enviarComDigitando(chat, '❌ *Opção inválida.* Por favor, escolha uma opção do *MENU*.');
+                await enviarComDigitando(chat, '❌ Opção inválida. Digite *MENU* para ver as opções.');
             }
             break;
     }
 });
 
-// 🔔 Verificação de inatividade e encerramento
+// ======================================
+// VERIFICAÇÃO DE INATIVIDADE
+// ======================================
 setInterval(() => {
     const agora = Date.now();
-
     for (const contato in ultimasInteracoes) {
-        const ultima = ultimasInteracoes[contato];
-        const tempoSemInteracao = agora - ultima;
-
-        if (iniciadasPeloCliente[contato]) {
-            if (tempoSemInteracao >= TEMPO_ENCERRAMENTO) {
-                client.sendMessage(contato, '🚫 Atendimento *encerrado por inatividade.*\n\nQuando quiser, é só digitar *MENU* para começar de novo.');
-                delete ultimasInteracoes[contato];
-                delete inatividadeNotificada[contato];
-                delete iniciadasPeloCliente[contato];
-                delete userPdfChoices[contato];
-            } else if (tempoSemInteracao >= TEMPO_AVISO && !inatividadeNotificada[contato]) {
-                client.sendMessage(contato, '👋 Olá! *Percebi que faz um tempinho que você não responde.*\n\nSe precisar de ajuda, estou por aqui. Para voltar ao menu, digite *MENU*.');
-                inatividadeNotificada[contato] = true;
-            }
+        const tempoSemInteracao = agora - ultimasInteracoes[contato];
+        
+        if (tempoSemInteracao >= TEMPO_ENCERRAMENTO) {
+            client.sendMessage(contato, '🚫 Atendimento encerrado por inatividade. Digite *MENU* para recomeçar.');
+            delete ultimasInteracoes[contato];
+            delete inatividadeNotificada[contato];
+            delete iniciadasPeloCliente[contato];
+        } 
+        else if (tempoSemInteracao >= TEMPO_AVISO && !inatividadeNotificada[contato]) {
+            client.sendMessage(contato, '👋 Ainda estou aqui! Digite algo ou *MENU* para continuar.');
+            inatividadeNotificada[contato] = true;
         }
     }
 }, 60 * 1000);
