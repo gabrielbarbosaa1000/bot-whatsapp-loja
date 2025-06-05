@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "prestart": "chmod +x prestart.sh && ./prestart.sh",
-    "render-build": "npm install --omit-dev --ignore-scripts=false"
+    "render-build": "npm install --omit=dev --ignore-scripts=false --legacy-peer-deps",
+    "postinstall": "echo 'Instalação concluída'"
   },
   "dependencies": {
     "whatsapp-web.js": "^1.25.0",
@@ -17,6 +18,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "engines": {
-    "node": "18.x"
+    "node": "18.x",
+    "npm": "9.x"
   }
 }
