@@ -1,26 +1,11 @@
 // ======================================
-// DEBUG INICIAL (ADICIONADO)
+// DEBUG INICIAL (VERIFICAÇÃO DE AMBIENTE)
 // ======================================
-console.log('=== AMBIENTE ===');
-console.log('Node version:', process.version);
-console.log('Chromium path:', process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser');
+console.log('=== VERIFICAÇÃO DE AMBIENTE ===');
+console.log('Node.js Version:', process.version);
+console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('Chromium Path:', process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser');
 console.log('DISPLAY:', process.env.DISPLAY || 'não definido');
-console.log('PUPPETEER_SKIP_CHROMIUM_DOWNLOAD:', process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD || 'não definido');
-
-// Verifica permissões de arquivo
-const fs = require('fs');
-const path = require('path');
-try {
-  if (!fs.existsSync('./sessions')) fs.mkdirSync('./sessions');
-  if (!fs.existsSync('./public')) fs.mkdirSync('./public');
-  
-  fs.writeFileSync('./sessions/test.txt', 'test');
-  fs.writeFileSync('./public/test.txt', 'test');
-  console.log('✅ Permissões de arquivo OK - Escrita habilitada');
-} catch (e) {
-  console.error('❌ Erro de permissão:', e);
-  process.exit(1);
-}
 
 // ======================================
 // CONFIGURAÇÕES INICIAIS
@@ -29,18 +14,16 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 10000;
+const fs = require('fs');
+const path = require('path');
 const qrcode = require('qrcode');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const { addExtra } = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-// Configuração avançada do Puppeteer
-const puppeteer = addExtra(require('puppeteer'));
+// Configuração do Puppeteer Extra
+const puppeteer = addExtra(require('puppeteer-core'));
 puppeteer.use(StealthPlugin());
-
-console.log('\n=== VERIFICAÇÃO DE DEPENDÊNCIAS ===');
-console.log('Versão do whatsapp-web.js:', require('whatsapp-web.js/package.json').version);
-console.log('Versão do Puppeteer:', require('puppeteer/package.json').version);
 
 // ======================================
 // CONFIGURAÇÃO PERSONALIZÁVEL (EDITÁVEL)
@@ -54,23 +37,12 @@ const CONFIG = {
     '5': '📍 Nossa loja física:\nAv. Principal, 123\nHorário: 9h às 18h\nhttps://maps.app.goo.gl/xxxx',
     'menu': 'Escolha uma opção:\n1. Atendimento\n2. Financeiro\n3. Trabalhe conosco\n4. Ofertas\n5. Localização'
   },
-  tempoDigitacao: 2000, // Tempo do efeito "digitando"
+  tempoDigitacao: 2000,
   reconexao: {
     tentativasMaximas: 5,
-    intervalo: 15000 // 15 segundos
+    intervalo: 15000
   }
 };
-
-// ======================================
-// INICIALIZAÇÃO DO SISTEMA
-// ======================================
-console.log('\n=== INICIANDO BOT ===');
-console.log('Modo:', process.env.NODE_ENV || 'development');
-console.log('Porta:', PORT);
-
-// Controle de conexão
-let isConnected = false;
-let reconexoes = 0;
 
 // ======================================
 // CONFIGURAÇÃO DO WHATSAPP CLIENT (ATUALIZADA)
@@ -103,8 +75,19 @@ const client = new Client({
 });
 
 console.log('\n=== CONFIGURAÇÃO DO CLIENTE ===');
-console.log('Auth Strategy:', client.options.authStrategy);
-console.log('Puppeteer Config:', client.options.puppeteer);
+console.log('Usando Chromium em:', client.options.puppeteer.executablePath);
+console.log('Args do Puppeteer:', client.options.puppeteer.args);
+
+// ======================================
+// INICIALIZAÇÃO DO SISTEMA
+// ======================================
+console.log('\n=== INICIANDO BOT ===');
+console.log('Modo:', process.env.NODE_ENV || 'development');
+console.log('Porta:', PORT);
+
+// Controle de conexão
+let isConnected = false;
+let reconexoes = 0;
 
 // ======================================
 // GERENCIAMENTO DE CONEXÃO
@@ -114,14 +97,15 @@ client.on('qr', async qr => {
   
   console.log('\n🔵 QR Code gerado');
   try {
+    if (!fs.existsSync('public')) fs.mkdirSync('public');
+    
     await qrcode.toFile('public/qrcode.png', qr, {
       width: 300,
       margin: 2,
       errorCorrectionLevel: 'H'
     });
     
-    console.log('📲 QR Code disponível em: /qrcode');
-    console.log('🔄 Aguardando autenticação...');
+    console.log('📲 Acesse o QR Code em: /qrcode');
   } catch (err) {
     console.error('❌ Falha ao gerar QR:', err);
   }
@@ -136,7 +120,6 @@ client.on('authenticated', () => {
 client.on('ready', () => {
   isConnected = true;
   console.log('\n🚀 Bot pronto para atendimento!');
-  console.log('📌 Envie "menu" para ver as opções');
 });
 
 client.on('disconnected', async (reason) => {
@@ -178,7 +161,7 @@ async function handleMensagem(msg) {
     const contact = await msg.getContact();
     const nome = contact.pushname || 'Cliente';
 
-    console.log(`\n📩 Mensagem recebida de ${nome}: ${comando}`);
+    console.log(`📩 ${nome}: ${comando}`);
 
     if (CONFIG.respostas[comando]) {
       await enviarComDigitando(chat, CONFIG.respostas[comando]);
@@ -210,15 +193,14 @@ app.get('/status', (req, res) => {
     reconexoes,
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    nodeVersion: process.version,
-    memoryUsage: process.memoryUsage(),
-    chromiumPath: process.env.CHROMIUM_PATH || 'default'
+    chromiumPath: process.env.CHROMIUM_PATH || 'default',
+    nodeVersion: process.version
   });
 });
 
 app.listen(PORT, () => {
   console.log(`\n🌐 Servidor rodando na porta ${PORT}`);
-  console.log(`🔗 Endpoints disponíveis:
+  console.log(`🔗 Endpoints:
   /status       - Verificar status do bot
   /qrcode       - Obter QR Code de conexão`);
 });
@@ -228,8 +210,16 @@ app.listen(PORT, () => {
 // ======================================
 client.on('message', handleMensagem);
 
+// Verifica e cria diretórios necessários
+if (!fs.existsSync('./sessions')) {
+  fs.mkdirSync('./sessions', { recursive: true });
+}
+if (!fs.existsSync('./public')) {
+  fs.mkdirSync('./public', { recursive: true });
+}
+
 client.initialize().catch(err => {
-  console.error('\n❌ Falha crítica na inicialização:', err);
+  console.error('❌ Falha na inicialização:', err);
   process.exit(1);
 });
 
@@ -238,4 +228,4 @@ function delay(ms) {
 }
 
 console.log('\n=== SISTEMA INICIALIZADO ===');
-console.log('🔍 Monitorando logs para eventos...');
+console.log('Aguardando eventos...');

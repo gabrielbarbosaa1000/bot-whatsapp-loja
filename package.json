@@ -4,21 +4,21 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "prestart": "chmod +x prestart.sh && ./prestart.sh",
-    "render-build": "npm install --omit=dev --ignore-scripts=false --legacy-peer-deps",
-    "postinstall": "echo 'Instalação concluída'"
+    "prestart": "./prestart.sh",
+    "render-build": "npm install --omit=dev --ignore-scripts=false --legacy-peer-deps --prefer-offline --no-audit",
+    "postinstall": "echo 'Dependências instaladas com sucesso'"
   },
   "dependencies": {
     "whatsapp-web.js": "^1.25.0",
     "qrcode": "^1.5.3",
     "express": "^4.18.2",
     "dotenv": "^16.3.1",
-    "puppeteer": "^21.6.0",
+    "puppeteer-core": "^21.6.0",  // Troquei para puppeteer-core
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "engines": {
-    "node": "18.x",
-    "npm": "9.x"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
