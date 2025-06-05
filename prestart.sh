@@ -4,20 +4,16 @@ set -ex
 # Configuração do ambiente
 export DEBIAN_FRONTEND=noninteractive
 
-# Adiciona repositório do Chromium
-sudo apt-get update -y
-sudo apt-get install -y wget gnupg
+# Instala o Google Chrome Stable (que é mais confiável que o Chromium)
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-
-# Instala o Chromium específico para o Puppeteer
-sudo apt-get update -y
+sudo apt-get update
 sudo apt-get install -y google-chrome-stable
 
-# Cria symlink exigido pelo Puppeteer
+# Cria symlink para o Chromium (que o Puppeteer espera)
 sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium-browser
 
-# Instala dependências adicionais
+# Instala dependências necessárias
 sudo apt-get install -y \
   libgbm1 \
   libxshmfence1 \
