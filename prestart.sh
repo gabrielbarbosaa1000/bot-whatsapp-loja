@@ -1,36 +1,28 @@
 #!/bin/bash
 set -ex
 
-# Configuração do ambiente
+# Configuração otimizada para o Render
 export DEBIAN_FRONTEND=noninteractive
 
-# Instala dependências essenciais
-sudo apt-get update -y
-sudo apt-get install -y \
-  wget \
-  gnupg \
-  ca-certificates \
-  fonts-liberation \
+# Instala apenas o essencial
+sudo apt-get update -yq
+sudo apt-get install -yq --no-install-recommends \
+  libgbm1 \
+  libxshmfence1 \
   libasound2 \
-  libatk-bridge2.0-0 \
   libatk1.0-0 \
   libc6 \
   libcairo2 \
-  libcups2 \
   libdbus-1-3 \
   libexpat1 \
   libfontconfig1 \
-  libgbm1 \
   libgcc1 \
   libglib2.0-0 \
   libgtk-3-0 \
   libnspr4 \
   libnss3 \
   libpango-1.0-0 \
-  libpangocairo-1.0-0 \
-  libstdc++6 \
   libx11-6 \
-  libx11-xcb1 \
   libxcb1 \
   libxcomposite1 \
   libxcursor1 \
@@ -42,11 +34,13 @@ sudo apt-get install -y \
   libxrender1 \
   libxss1 \
   libxtst6 \
-  lsb-release \
+  ca-certificates \
+  fonts-liberation \
+  wget \
   xdg-utils
 
-# Cria diretórios necessários
+# Configurações de permissão
 mkdir -p ./sessions ./public
-chmod -R 777 ./sessions ./public
+chmod -R 755 ./sessions ./public
 
-echo "✅ Pré-inicialização concluída com sucesso!"
+echo "✅ Pré-configuração concluída!"
