@@ -4,7 +4,7 @@
 console.log('=== VERIFICAÇÃO DE AMBIENTE ===');
 console.log('Node.js Version:', process.version);
 console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
-console.log('Chromium Path:', process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser');
+console.log('Chromium Path:', process.env.CHROMIUM_PATH || '/usr/bin/google-chrome-stable');
 console.log('DISPLAY:', process.env.DISPLAY || 'não definido');
 
 // ======================================
@@ -54,7 +54,7 @@ const client = new Client({
   }),
   puppeteer: {
     headless: true,
-    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
+    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/google-chrome-stable',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',

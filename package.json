@@ -5,8 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "prestart": "./prestart.sh",
-    "render-build": "npm install --omit=dev --ignore-scripts=false --legacy-peer-deps --prefer-offline --no-audit",
-    "postinstall": "echo 'Dependências instaladas com sucesso'"
+    "render-build": "npm install --omit=dev --ignore-scripts=false --legacy-peer-deps --prefer-offline --no-audit"
   },
   "dependencies": {
     "whatsapp-web.js": "^1.25.0",
@@ -18,7 +17,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "node": "18.x",
+    "npm": "9.x"
   }
 }
