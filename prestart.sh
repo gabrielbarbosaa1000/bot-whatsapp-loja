@@ -1,12 +1,24 @@
 #!/bin/bash
 set -ex
 
-# Configuração otimizada para o Render
+# Configuração do ambiente
 export DEBIAN_FRONTEND=noninteractive
 
-# Instala apenas o essencial
-sudo apt-get update -yq
-sudo apt-get install -yq --no-install-recommends \
+# Adiciona repositório do Chromium
+sudo apt-get update -y
+sudo apt-get install -y wget gnupg
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+
+# Instala o Chromium específico para o Puppeteer
+sudo apt-get update -y
+sudo apt-get install -y google-chrome-stable
+
+# Cria symlink exigido pelo Puppeteer
+sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium-browser
+
+# Instala dependências adicionais
+sudo apt-get install -y \
   libgbm1 \
   libxshmfence1 \
   libasound2 \
@@ -36,11 +48,10 @@ sudo apt-get install -yq --no-install-recommends \
   libxtst6 \
   ca-certificates \
   fonts-liberation \
-  wget \
   xdg-utils
 
-# Configurações de permissão
+# Cria diretórios necessários
 mkdir -p ./sessions ./public
 chmod -R 755 ./sessions ./public
 
-echo "✅ Pré-configuração concluída!"
+echo "✅ Pré-configuração concluída com sucesso!"
