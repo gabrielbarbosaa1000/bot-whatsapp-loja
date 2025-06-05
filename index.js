@@ -9,6 +9,12 @@ const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const { addExtra } = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+// Configuração avançada do Puppeteer
+const puppeteer = addExtra(require('puppeteer'));
+puppeteer.use(StealthPlugin());
 
 // ======================================
 // CONFIGURAÇÃO PERSONALIZÁVEL (EDITÁVEL)
@@ -35,13 +41,14 @@ const CONFIG = {
 console.log('=== INICIANDO BOT ===');
 console.log('Modo:', process.env.NODE_ENV || 'development');
 console.log('Porta:', PORT);
+console.log('Chromium path:', process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser');
 
 // Controle de conexão
 let isConnected = false;
 let reconexoes = 0;
 
 // ======================================
-// CONFIGURAÇÃO DO WHATSAPP CLIENT
+// CONFIGURAÇÃO DO WHATSAPP CLIENT (ATUALIZADA)
 // ======================================
 const client = new Client({
   authStrategy: new LocalAuth({
@@ -50,11 +57,23 @@ const client = new Client({
   }),
   puppeteer: {
     headless: true,
+    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage'
-    ]
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu',
+      '--use-gl=egl'
+    ],
+    ignoreDefaultArgs: ['--disable-extensions']
+  },
+  webVersionCache: {
+    type: 'remote',
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
   }
 });
 
@@ -163,7 +182,9 @@ app.get('/status', (req, res) => {
   res.json({
     status: isConnected ? 'online' : 'offline',
     reconexoes,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    chromiumPath: process.env.CHROMIUM_PATH || 'default'
   });
 });
 
@@ -178,6 +199,11 @@ app.listen(PORT, () => {
 // INICIALIZAÇÃO
 // ======================================
 client.on('message', handleMensagem);
+
+// Verifica se a pasta sessions existe
+if (!fs.existsSync('./sessions')) {
+  fs.mkdirSync('./sessions');
+}
 
 client.initialize().catch(err => {
   console.error('❌ Falha na inicialização:', err);
