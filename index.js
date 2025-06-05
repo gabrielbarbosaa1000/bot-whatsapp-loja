@@ -1,13 +1,4 @@
 // ======================================
-// DEBUG INICIAL (VERIFICAÇÃO DE AMBIENTE)
-// ======================================
-console.log('=== VERIFICAÇÃO DE AMBIENTE ===');
-console.log('Node.js Version:', process.version);
-console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
-console.log('Chromium Path:', process.env.CHROMIUM_PATH || '/usr/bin/google-chrome-stable');
-console.log('DISPLAY:', process.env.DISPLAY || 'não definido');
-
-// ======================================
 // CONFIGURAÇÕES INICIAIS
 // ======================================
 require('dotenv').config();
@@ -24,6 +15,13 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 // Configuração do Puppeteer Extra
 const puppeteer = addExtra(require('puppeteer-core'));
 puppeteer.use(StealthPlugin());
+
+// Debug inicial
+console.log('=== VERIFICAÇÃO DE AMBIENTE ===');
+console.log('Node.js Version:', process.version);
+console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('Chromium Path:', process.env.CHROMIUM_PATH || '/usr/bin/google-chrome-stable');
+console.log('DISPLAY:', process.env.DISPLAY || ':99');
 
 // ======================================
 // CONFIGURAÇÃO PERSONALIZÁVEL (EDITÁVEL)
@@ -64,8 +62,11 @@ const client = new Client({
       '--no-zygote',
       '--single-process',
       '--disable-gpu',
-      '--use-gl=egl'
+      '--use-gl=egl',
+      '--remote-debugging-port=9222',
+      '--remote-debugging-address=0.0.0.0'
     ],
+    ignoreHTTPSErrors: true,
     ignoreDefaultArgs: ['--disable-extensions']
   },
   webVersionCache: {
@@ -75,8 +76,8 @@ const client = new Client({
 });
 
 console.log('\n=== CONFIGURAÇÃO DO CLIENTE ===');
-console.log('Usando Chromium em:', client.options.puppeteer.executablePath);
-console.log('Args do Puppeteer:', client.options.puppeteer.args);
+console.log('Browser Path:', client.options.puppeteer.executablePath);
+console.log('Puppeteer Args:', client.options.puppeteer.args);
 
 // ======================================
 // INICIALIZAÇÃO DO SISTEMA
@@ -213,13 +214,23 @@ client.on('message', handleMensagem);
 // Verifica e cria diretórios necessários
 if (!fs.existsSync('./sessions')) {
   fs.mkdirSync('./sessions', { recursive: true });
+  console.log('Diretório sessions criado');
 }
 if (!fs.existsSync('./public')) {
   fs.mkdirSync('./public', { recursive: true });
+  console.log('Diretório public criado');
 }
 
 client.initialize().catch(err => {
   console.error('❌ Falha na inicialização:', err);
+  
+  if (err.message.includes('ENOENT')) {
+    console.error('\n⚠️ Solução alternativa:');
+    console.error('1. Verifique se o Chrome está instalado corretamente no prestart.sh');
+    console.error('2. Confirme as variáveis de ambiente no Render');
+    console.error('3. Verifique os logs completos do prestart.sh');
+  }
+  
   process.exit(1);
 });
 
